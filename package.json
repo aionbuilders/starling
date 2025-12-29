@@ -1,0 +1,28 @@
+{
+  "name": "@aionbuilders/starling",
+  "module": "src/index.js",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --watch tests/server.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "require": "./src/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@aionbuilders/helios-protocol": "link:@aionbuilders/helios-protocol",
+    "@killiandvcz/pulse": "^2.1.3"
+  }
+}
