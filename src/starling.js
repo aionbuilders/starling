@@ -84,6 +84,9 @@ export class Starling {
     /** @param {ArrayBuffer | Uint8Array | Buffer} data @param {Partial<Parameters<typeof Message.outgoing>[1]>} options */
     binary = (data, options = {}) => this.send(Message.outgoing(data, {dataType: "buffer", ...options}));
 
+    /** @param {string} topic @param {any} data @param {Partial<Parameters<typeof EventMessage.outgoing>[1]>} options */
+    emit = (topic, data, options = {}) => this.send(EventMessage.outgoing(data, { topic, ...options }));
+
     /**
      * @param {string} method @param {any} payload @param {Partial<Parameters<typeof Request.outgoing>[1]> & {throwOnError?: boolean}} options
      * @returns {Promise<Response>}
