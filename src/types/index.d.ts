@@ -10,6 +10,11 @@ export type SessionRecoveryOptions = {
     };
 };
 
+export type HealthCheckOptions = {
+    enabled?: boolean;
+    onPing?: () => void;
+};
+
 export type StarlingOptions = {
     url: string | URL;
     protocols?: string[];
@@ -17,4 +22,5 @@ export type StarlingOptions = {
     requestTimeout: number;
     parseMode: 'strict' | 'permissive' | 'passthrough';
     sessionRecovery?: SessionRecoveryOptions;
+    healthCheck?: HealthCheckOptions;
 }

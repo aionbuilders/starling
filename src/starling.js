@@ -59,6 +59,15 @@ export class Starling {
             this.autoRecover = false;
             this.autoRefresh = false;
         }
+
+        // Setup health check (minimal - browser handles pong automatically)
+        if (options.healthCheck?.enabled !== false) {
+            this.healthCheckEnabled = true;
+            this.onPingCallback = options.healthCheck?.onPing || null;
+        } else {
+            this.healthCheckEnabled = false;
+            this.onPingCallback = null;
+        }
     }
     
     /** @type {StarlingOptions} */
