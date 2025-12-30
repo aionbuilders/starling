@@ -279,6 +279,40 @@ export class Starling {
     }
 
     /**
+     * Subscribe to a room/topic
+     * @param {string} topic - Topic to subscribe to (e.g., "lobby", "user:123")
+     * @param {any} [data={}] - Optional data for validator
+     * @returns {Promise<{success: boolean, error?: string}>}
+     */
+    async subscribe(topic, data = {}) {
+        if (this.state !== 'OPEN') {
+            throw new Error('Cannot subscribe: connection not open');
+        }
+
+        const response = await this.request('helios.subscribe', { topic, data });
+
+        if (!response.data?.success) {
+            throw new Error(response.data?.error || 'Subscription failed');
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Unsubscribe from a room/topic
+     * @param {string} topic - Topic to unsubscribe from
+     * @returns {Promise<{success: boolean}>}
+     */
+    async unsubscribe(topic) {
+        if (this.state !== 'OPEN') {
+            throw new Error('Cannot unsubscribe: connection not open');
+        }
+
+        const response = await this.request('helios.unsubscribe', { topic });
+        return response.data;
+    }
+
+    /**
      * Start automatic token refresh
      * @param {number} ttl - Session TTL in milliseconds
      */
