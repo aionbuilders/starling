@@ -5,6 +5,7 @@ import { ProtocolError } from "@aionbuilders/helios-protocol";
 import { Request, Event as EventMessage, Response, Message } from "@aionbuilders/helios-protocol";
 import { Serializer } from "@aionbuilders/helios-protocol";
 import { ConnectionClosedError } from "./errors.js";
+import { LocalStorageSessionStorage, InMemorySessionStorage } from "./session/SessionStorage.js";
 
 
 /**
@@ -21,7 +22,7 @@ export class Starling {
             requestTimeout: options.requestTimeout || 5000,
             parseMode: options.parseMode || 'strict',
         };
-        
+
         this.events = new Pulse({ EventClass: StarlingEvent });
 
         this.methods = new MethodManager();
@@ -41,6 +42,19 @@ export class Starling {
 
         // Track connection timeout for cleanup
         this.connectionTimer = null;
+
+        // Setup session storage
+        if (options.sessionRecovery?.enabled) {
+            const isBrowser = typeof window !== 'undefined' && typeof localStorage !== 'undefined';
+            this.sessionStorage = options.sessionRecovery.storage ||
+                (isBrowser ? new LocalStorageSessionStorage() : new InMemorySessionStorage());
+
+            this.sessionRecoveryEnabled = true;
+            this.autoRecover = options.sessionRecovery.autoRecover !== false; // default: true
+        } else {
+            this.sessionRecoveryEnabled = false;
+            this.autoRecover = false;
+        }
     }
     
     /** @type {StarlingOptions} */
@@ -147,7 +161,67 @@ export class Starling {
     /** @param {Event} event */
     handleOpen(event) {
         this.state = 'OPEN';
+
+        // Setup session event handlers if enabled
+        if (this.sessionRecoveryEnabled) {
+            this.setupSessionHandlers();
+        }
+
         this.events.emit("open", {event, starling: this, websocket: this.websocket});
+    }
+
+    /**
+     * Setup handlers for session recovery events
+     */
+    setupSessionHandlers() {
+        // Session created - save token
+        this.topics.on('session:created', async (data) => {
+            const { token } = data;
+            try {
+                await this.sessionStorage?.save(token);
+                console.log('[Starling] Session token saved');
+            } catch (error) {
+                console.error('[Starling] Failed to save session token:', error);
+            }
+        });
+
+        // Session recovered - notify success
+        this.topics.on('session:recovered', (data) => {
+            const { sessionId, metadata } = data;
+            console.log('[Starling] Session recovered:', sessionId);
+
+            this.events.emit('session:recovered', {
+                session: data,
+                starling: this
+            });
+        });
+
+        // Recovery failed - clear invalid token and start fresh
+        this.topics.on('session:recovery-failed', async (data) => {
+            const { reason } = data;
+            console.log('[Starling] Session recovery failed:', reason);
+
+            // Clear invalid token
+            try {
+                await this.sessionStorage?.clear();
+            } catch (error) {
+                console.error('[Starling] Failed to clear session token:', error);
+            }
+
+            this.events.emit('session:recovery-failed', {
+                reason,
+                starling: this
+            });
+        });
+    }
+
+    /**
+     * Clear session token manually
+     */
+    async clearSession() {
+        if (this.sessionStorage) {
+            await this.sessionStorage.clear();
+        }
     }
     
     /** @param {MessageEvent} event */
@@ -249,7 +323,7 @@ export class Starling {
     }
     
     /** @param {Partial<StarlingOptions>} options */
-    connect(options = {}) {
+    async connect(options = {}) {
         // Set state to CONNECTING
         this.state = 'CONNECTING';
 
@@ -259,7 +333,22 @@ export class Starling {
         };
 
         if (!opt.url) throw new Error("No URL provided for WebSocket connection.");
-        const url = opt.url instanceof URL ? opt.url : new URL(opt.url);
+        let url = opt.url instanceof URL ? opt.url : new URL(opt.url);
+
+        // Try to load session token for recovery
+        if (this.sessionRecoveryEnabled && this.autoRecover) {
+            try {
+                const token = await this.sessionStorage?.load();
+                if (token) {
+                    // Add token to URL query parameters
+                    url = new URL(url.toString());
+                    url.searchParams.set('session_token', token);
+                }
+            } catch (error) {
+                console.warn('[Starling] Failed to load session token:', error);
+            }
+        }
+
         const protocols = opt.protocols || [];
         this.websocket = new WebSocket(url, protocols);
         this.websocket.onopen = event => {
