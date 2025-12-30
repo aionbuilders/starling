@@ -51,9 +51,13 @@ export class Starling {
 
             this.sessionRecoveryEnabled = true;
             this.autoRecover = options.sessionRecovery.autoRecover !== false; // default: true
+            this.autoRefresh = options.sessionRecovery.autoRefresh !== false; // default: true
+            this.refreshInterval = options.sessionRecovery.refreshInterval || null; // null = use TTL/2
+            this.refreshTimer = null; // Timer for auto-refresh
         } else {
             this.sessionRecoveryEnabled = false;
             this.autoRecover = false;
+            this.autoRefresh = false;
         }
     }
     
@@ -174,14 +178,19 @@ export class Starling {
      * Setup handlers for session recovery events
      */
     setupSessionHandlers() {
-        // Session created - save token
+        // Session created - save token and start auto-refresh
         this.topics.on('session:created', async (data) => {
-            const { token } = data;
+            const { token, ttl } = data;
             try {
                 await this.sessionStorage?.save(token);
                 console.log('[Starling] Session token saved');
             } catch (error) {
                 console.error('[Starling] Failed to save session token:', error);
+            }
+
+            // Start auto-refresh if enabled and TTL provided
+            if (this.autoRefresh && ttl) {
+                this.startAutoRefresh(ttl);
             }
         });
 
@@ -213,6 +222,24 @@ export class Starling {
                 starling: this
             });
         });
+
+        // Session refreshed - save new token
+        this.topics.on('session:refreshed', async (data) => {
+            const { token, sessionId } = data;
+            console.log('[Starling] Session token refreshed');
+
+            try {
+                await this.sessionStorage?.save(token);
+            } catch (error) {
+                console.error('[Starling] Failed to save refreshed token:', error);
+            }
+
+            this.events.emit('session:refreshed', {
+                token,
+                sessionId,
+                starling: this
+            });
+        });
     }
 
     /**
@@ -221,6 +248,60 @@ export class Starling {
     async clearSession() {
         if (this.sessionStorage) {
             await this.sessionStorage.clear();
+        }
+    }
+
+    /**
+     * Manually refresh the session token
+     * @returns {Promise<any>} Response from server
+     */
+    async refreshSession() {
+        if (this.state !== 'OPEN') {
+            throw new Error('Cannot refresh session: connection not open');
+        }
+
+        const response = await this.request('session.refresh', {});
+
+        if (response.data?.error) {
+            throw new Error(response.data.error);
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Start automatic token refresh
+     * @param {number} ttl - Session TTL in milliseconds
+     */
+    startAutoRefresh(ttl) {
+        this.stopAutoRefresh(); // Clean up any existing interval
+
+        const interval = this.refreshInterval || (ttl / 2);
+
+        console.log(`[Starling] Starting auto-refresh every ${interval}ms`);
+
+        this.refreshTimer = setInterval(async () => {
+            if (this.state !== 'OPEN') {
+                this.stopAutoRefresh();
+                return;
+            }
+
+            try {
+                await this.refreshSession();
+            } catch (error) {
+                console.error('[Starling] Auto refresh failed:', error);
+            }
+        }, interval);
+    }
+
+    /**
+     * Stop automatic token refresh
+     */
+    stopAutoRefresh() {
+        if (this.refreshTimer) {
+            clearInterval(this.refreshTimer);
+            this.refreshTimer = null;
+            console.log('[Starling] Auto-refresh stopped');
         }
     }
     
@@ -310,10 +391,13 @@ export class Starling {
             this.topics.clear();
         }
 
-        // 4. Mark as closed
+        // 4. Stop auto-refresh timer if active
+        this.stopAutoRefresh();
+
+        // 5. Mark as closed
         this.state = 'CLOSED';
 
-        // 5. Emit close event AFTER cleanup
+        // 6. Emit close event AFTER cleanup
         this.events.emit("close", {event, starling: this, websocket: this.websocket});
     }
     

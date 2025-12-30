@@ -1,6 +1,8 @@
 export type SessionRecoveryOptions = {
     enabled?: boolean;
     autoRecover?: boolean;
+    autoRefresh?: boolean;
+    refreshInterval?: number | null;
     storage?: {
         save: (token: string) => Promise<void>;
         load: () => Promise<string | null>;
