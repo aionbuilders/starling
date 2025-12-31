@@ -1,0 +1,38 @@
+# Source files (on publie dist/ seulement)
+src/
+
+# Tests
+tests/
+*.test.js
+
+# Development
+examples/
+DEVELOPMENT.md
+
+# Config
+.gitignore
+jsconfig.json
+tsc/
+.claude/
+
+# Build artifacts
+*.tsbuildinfo
+
+# Logs
+*.log
+logs
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.github/
