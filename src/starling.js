@@ -7,10 +7,9 @@ import { Serializer } from "@aionbuilders/helios-protocol";
 import { ConnectionClosedError } from "./errors.js";
 import { LocalStorageSessionStorage, InMemorySessionStorage } from "./session/SessionStorage.js";
 
-
 /**
-* @typedef {import("./types").StarlingOptions} StarlingOptions
-*/
+ * @import {StarlingOptions} from "./types"
+ */
 
 export class Starling {
     /**@param {Partial<StarlingOptions>} [options] */

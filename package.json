@@ -1,6 +1,6 @@
 {
   "name": "@aionbuilders/starling",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Universal WebSocket client for Helios - Works in browser, Node.js, Bun, and Deno",
   "type": "module",
   "main": "dist/index.js",
@@ -24,13 +24,13 @@
   },
   "scripts": {
     "build": "bun build src/index.js --outdir dist --target node --minify",
-    "generate-types": "tsc --project ./tsc/tsconfig.json",
+    "generate-types": "tsc --project ./tsc/tsconfig.json && mkdir -p dist/types && cp -r src/types/* dist/types/",
     "prepublishOnly": "bun run build && bun run generate-types",
     "dev": "bun run --watch tests/server.js",
     "release:alpha": "bun version prerelease && bun publish --tag alpha",
-    "release:stable": "bun version major && bun publish",
-    "release:minor": "bun version minor && bun publish --tag latest",
-    "release:patch": "bun version patch && bun publish"
+    "release:stable": "npm version major && bun publish",
+    "release:minor": "npm version minor && bun publish --tag latest",
+    "release:patch": "npm version patch && bun publish"
   },
   "keywords": [
     "websocket",
@@ -57,11 +57,11 @@
   },
   "homepage": "https://github.com/aionbuilders/starling#readme",
   "dependencies": {
-    "@aionbuilders/helios-protocol": "^1.1.0",
+    "@aionbuilders/helios-protocol": "^1.1.1",
     "@killiandvcz/pulse": "^2.1.3"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "1.3.6"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
